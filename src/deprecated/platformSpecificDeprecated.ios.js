@@ -22,17 +22,23 @@ async function startTabBasedApp(params) {
 
   const controllerID = _.uniqueId('controllerID');
   params.tabs.map(function(tab, index) {
+    const eventless = tab.eventless ? tab.eventless : false;
     const navigatorID = controllerID + '_nav' + index;
     const screenInstanceID = _.uniqueId('screenInstanceID');
-    if (!tab.screen) {
+    if (!tab.screen && !eventless) {
       console.error('startTabBasedApp(params): every tab must include a screen property, take a look at tab#' + (index + 1));
       return;
     }
-    const {
-      navigatorStyle,
-      navigatorButtons,
-      navigatorEventID
-    } = _mergeScreenSpecificSettings(tab.screen, screenInstanceID, tab);
+    let navigatorStyle = tab.navigatorStyle;
+    let navigatorButtons = tab.navigatorButtons;
+    let navigatorEventID = screenInstanceID + "_events";
+    if(eventless) {
+      let settings = _mergeScreenSpecificSettings(tab.screen, screenInstanceID, tab, navigatorEventID);
+      navigatorStyle = settings.navigatorStyle;
+      navigatorButtons = settings.navigatorButtons;
+      navigatorEventID = settings.navigatorButtons;
+    }
+    
     _saveNavigatorButtonsProps(navigatorButtons);
     _saveNavBarComponentProps(navigatorStyle);
     tab.navigationParams = {
@@ -202,7 +208,7 @@ async function startSingleScreenApp(params) {
   return await ControllerRegistry.setRootController(controllerID, params.animationType, params.passProps || {});
 }
 
-function _mergeScreenSpecificSettings(screenID, screenInstanceID, params) {
+function _mergeScreenSpecificSettings(screenID, screenInstanceID, params, navigatorEventID) {
   const screenClass = Navigation.getRegisteredScreen(screenID);
   if (!screenClass) {
     console.error('Cannot create screen ' + screenID + '. Are you it was registered with Navigation.registerScreen?');
@@ -213,7 +219,9 @@ function _mergeScreenSpecificSettings(screenID, screenInstanceID, params) {
     Object.assign(navigatorStyle, params.navigatorStyle);
   }
 
-  let navigatorEventID = screenInstanceID + '_events';
+  if (!navigatorEventID) {
+    navigatorEventID = screenInstanceID + '_events';
+  }
   let navigatorButtons = _.cloneDeep(screenClass.navigatorButtons);
   if (params.navigatorButtons) {
     navigatorButtons = _.cloneDeep(params.navigatorButtons);
